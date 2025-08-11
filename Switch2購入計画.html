@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nintendo Switch2 貯金計画</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+    </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800 p-4 min-h-screen flex items-center justify-center">
+
+    <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-lg">
+        <!-- アプリのタイトル -->
+        <h1 class="text-3xl font-bold text-center mb-6 text-purple-600">
+            みんなで貯める！Switch2貯金
+        </h1>
+
+        <!-- ビュー切り替えボタン -->
+        <div class="flex justify-center space-x-4 mb-6">
+            <button id="viewInputButton" class="bg-purple-500 text-white p-2 px-4 rounded-full font-bold shadow hover:bg-purple-600 transition">日々の記録</button>
+            <button id="viewGraphButton" class="bg-gray-200 text-gray-700 p-2 px-4 rounded-full font-bold shadow hover:bg-gray-300 transition">グラフで見る</button>
+        </div>
+        
+        <!-- トップ画面: 目標金額と進捗 -->
+        <div id="dashboard" class="mb-6 bg-purple-50 p-4 rounded-xl">
+            <div class="text-center mb-4">
+                <p class="text-sm font-semibold text-gray-500">目標金額</p>
+                <p id="targetAmount" class="text-4xl font-extrabold text-purple-700">¥60,000</p>
+            </div>
+            <div class="text-center mb-4">
+                <p class="text-sm font-semibold text-gray-500">現在の貯金額</p>
+                <p id="currentAmount" class="text-5xl font-extrabold text-purple-800">¥0</p>
+            </div>
+            
+            <!-- 進捗バー -->
+            <div class="w-full bg-gray-200 rounded-full h-4 mb-4 overflow-hidden">
+                <div id="progressBar" class="bg-purple-500 h-4 rounded-full transition-all duration-500" style="width: 0%;"></div>
+            </div>
+            <p id="progressText" class="text-center text-lg font-bold text-purple-700">達成率: 0%</p>
+        </div>
+
+        <!-- 記録入力フォーム -->
+        <div id="inputView" class="space-y-4">
+            <h2 class="text-xl font-bold text-center text-gray-700">今日の貯金を記録</h2>
+            
+            <!-- 誰が貯金したかを選択 -->
+            <div class="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
+                <span class="text-2xl">👤</span>
+                <select id="saverName" class="flex-grow p-2 rounded-md border border-gray-300 bg-white">
+                    <option value="お父さん">お父さん</option>
+                    <option value="お母さん">お母さん</option>
+                    <option value="克樹">克樹</option>
+                    <option value="楓">楓</option>
+                </select>
+            </div>
+
+            <!-- 積立貯金 -->
+            <div class="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
+                <span class="text-2xl">💰</span>
+                <input type="number" id="dailySavings" placeholder="積立貯金額 (例: 200)" class="flex-grow p-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <button onclick="addSavings('dailySavings')" class="bg-purple-500 text-white p-2 rounded-md hover:bg-purple-600 transition">追加</button>
+            </div>
+            
+            <!-- お手伝い報奨 -->
+            <div class="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
+                <span class="text-2xl">🤝</span>
+                <input type="number" id="choreReward" placeholder="お手伝い報奨金 (例: 100)" class="flex-grow p-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <button onclick="addSavings('choreReward')" class="bg-purple-500 text-white p-2 rounded-md hover:bg-purple-600 transition">追加</button>
+            </div>
+            
+            <h3 class="text-lg font-bold text-center text-gray-600 mt-6">臨時収入</h3>
+            
+            <!-- 臨時収入 -->
+            <div class="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
+                <span class="text-2xl">🎁</span>
+                <select id="extraSource" class="p-2 rounded-md border border-gray-300 bg-white">
+                    <option value="mercari">メルカリ売上</option>
+                    <option value="foodSavings">大人の食費節約</option>
+                    <option value="christmas">クリスマスプレゼント</option>
+                    <option value="other">その他</option>
+                </select>
+                <input type="number" id="extraSavings" placeholder="金額 (例: 1500)" class="flex-grow p-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <button onclick="addExtraSavings()" class="bg-purple-500 text-white p-2 rounded-md hover:bg-purple-600 transition">追加</button>
+            </div>
+        </div>
+        
+        <!-- 履歴表示エリア -->
+        <div id="historyView" class="mt-8">
+            <h2 class="text-xl font-bold text-center text-gray-700 mb-4">貯金の履歴</h2>
+            <ul id="historyList" class="bg-gray-50 p-4 rounded-xl space-y-2 max-h-60 overflow-y-auto">
+                <!-- 履歴がここに追加されます -->
+            </ul>
+        </div>
+
+        <!-- グラフ表示エリア (非表示から開始) -->
+        <div id="graphView" class="mt-8 hidden">
+            <h2 class="text-xl font-bold text-center text-gray-700 mb-4">月別貯金ペース</h2>
+            <div class="relative h-64">
+                <canvas id="savingsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 目標金額の設定
+        const TARGET_AMOUNT = 60000;
+        const TARGET_MONTHS = 12; // 12ヶ月
+        const START_DATE = new Date(2025, 7, 1); // 2025年8月から開始 (月は0-11)
+        const SAVER_NAMES = ["お父さん", "お母さん", "克樹", "楓"];
+        
+        // ローカルストレージからデータをロード
+        let savingsData = JSON.parse(localStorage.getItem('savingsData')) || [];
+        let currentTotal = 0;
+        let savingsChart;
+
+        // 初期化処理
+        function initializeApp() {
+            // 現在の合計金額を計算
+            currentTotal = savingsData.reduce((sum, item) => sum + item.amount, 0);
+            updateDisplay();
+            renderHistory();
+            setupViewButtons();
+        }
+
+        // 表示を更新する関数
+        function updateDisplay() {
+            // 現在の貯金額を更新
+            document.getElementById('currentAmount').textContent = `¥${currentTotal.toLocaleString()}`;
+            
+            // プログレスバーを更新
+            const progress = (currentTotal / TARGET_AMOUNT) * 100;
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = `${Math.min(progress, 100)}%`;
+            document.getElementById('progressText').textContent = `達成率: ${Math.min(progress, 100).toFixed(1)}%`;
+        }
+
+        // 履歴をレンダリングする関数
+        function renderHistory() {
+            const historyList = document.getElementById('historyList');
+            historyList.innerHTML = '';
+            savingsData.slice().reverse().forEach((item, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center bg-white p-3 rounded-md shadow-sm';
+                
+                // 編集・削除ボタンを追加
+                const actionsHtml = `
+                    <div class="flex space-x-2">
+                        <button onclick="editEntry(${savingsData.length - 1 - index})" class="bg-blue-500 text-white text-xs p-1 rounded hover:bg-blue-600 transition">編集</button>
+                        <button onclick="deleteEntry(${savingsData.length - 1 - index})" class="bg-red-500 text-white text-xs p-1 rounded hover:bg-red-600 transition">削除</button>
+                    </div>
+                `;
+
+                li.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xl">${getIcon(item.type)}</span>
+                        <div>
+                            <p class="font-bold">${item.source} <span class="font-normal text-gray-500">by ${item.person || '不明'}</span></p>
+                            <p class="text-sm text-gray-500">${new Date(item.date).toLocaleDateString('ja-JP')}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="font-extrabold text-purple-600">¥${item.amount.toLocaleString()}</span>
+                        ${actionsHtml}
+                    </div>
+                `;
+                historyList.appendChild(li);
+            });
+        }
+        
+        // アイコンを取得するヘルパー関数
+        function getIcon(type) {
+            switch (type) {
+                case 'dailySavings': return '💰';
+                case 'choreReward': return '🤝';
+                case 'mercari': return '🎁';
+                case 'foodSavings': return '🥗';
+                case 'christmas': return '🎄';
+                case 'other': return '📦';
+                default: return '✅';
+            }
+        }
+
+        // 貯金額を追加する関数
+        function addSavings(id) {
+            const input = document.getElementById(id);
+            const amount = parseInt(input.value, 10);
+            const person = document.getElementById('saverName').value;
+            
+            if (isNaN(amount) || amount <= 0) {
+                showNotification('有効な金額を入力してください。', 'error');
+                return;
+            }
+            
+            const source = (id === 'dailySavings') ? '積立貯金' : 'お手伝い報奨';
+            const newItem = {
+                type: id,
+                source: source,
+                amount: amount,
+                person: person,
+                date: new Date().toISOString()
+            };
+            
+            savingsData.push(newItem);
+            localStorage.setItem('savingsData', JSON.stringify(savingsData));
+            
+            currentTotal += amount;
+            updateDisplay();
+            renderHistory();
+            renderChart();
+            
+            input.value = '';
+        }
+        
+        // 臨時収入を追加する関数
+        function addExtraSavings() {
+            const source = document.getElementById('extraSource').value;
+            const input = document.getElementById('extraSavings');
+            const amount = parseInt(input.value, 10);
+            const person = document.getElementById('saverName').value;
+            
+            if (isNaN(amount) || amount <= 0) {
+                showNotification('有効な金額を入力してください。', 'error');
+                return;
+            }
+            
+            let sourceName;
+            switch (source) {
+                case 'mercari': sourceName = 'メルカリ売上'; break;
+                case 'foodSavings': sourceName = '大人の食費節約'; break;
+                case 'christmas': sourceName = 'クリスマスプレゼント'; break;
+                case 'other': sourceName = 'その他'; break;
+            }
+            
+            const newItem = {
+                type: source,
+                source: sourceName,
+                amount: amount,
+                person: person,
+                date: new Date().toISOString()
+            };
+            
+            savingsData.push(newItem);
+            localStorage.setItem('savingsData', JSON.stringify(savingsData));
+            
+            currentTotal += amount;
+            updateDisplay();
+            renderHistory();
+            renderChart();
+            
+            input.value = '';
+        }
+
+        // データの削除
+        function deleteEntry(index) {
+            if (confirm('この記録を削除しますか？')) {
+                savingsData.splice(index, 1);
+                localStorage.setItem('savingsData', JSON.stringify(savingsData));
+                initializeApp(); // UIを再レンダリング
+            }
+        }
+        
+        // データの編集
+        function editEntry(index) {
+            const item = savingsData[index];
+            const newAmount = parseInt(prompt(`金額を編集してください (${item.amount}円):`));
+            const newPerson = prompt(`貯金した人を編集してください (${item.person}):`, item.person);
+            
+            if (!isNaN(newAmount) && newAmount > 0) {
+                item.amount = newAmount;
+            }
+            if (newPerson && SAVER_NAMES.includes(newPerson)) {
+                item.person = newPerson;
+            }
+            
+            localStorage.setItem('savingsData', JSON.stringify(savingsData));
+            initializeApp(); // UIを再レンダリング
+        }
+
+        // シンプルな通知機能
+        function showNotification(message, type) {
+            console.log(`Notification (${type}): ${message}`);
+        }
+
+        // 月別貯金額を計算し、グラフをレンダリングする関数
+        function renderChart() {
+            const ctx = document.getElementById('savingsChart').getContext('2d');
+            if (savingsChart) {
+                savingsChart.destroy(); // 既存のチャートを破棄
+            }
+
+            const monthlySavings = {};
+            const monthlyLabels = [];
+            const targetDate = new Date(START_DATE);
+            targetDate.setMonth(targetDate.getMonth() + TARGET_MONTHS);
+            
+            let currentDate = new Date(START_DATE);
+            while (currentDate < targetDate) {
+                const yearMonth = currentDate.getFullYear() + '-' + (currentDate.getMonth() + 1).toString().padStart(2, '0');
+                monthlyLabels.push(`${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月`);
+                monthlySavings[yearMonth] = 0;
+                currentDate.setMonth(currentDate.getMonth() + 1);
+            }
+
+            savingsData.forEach(item => {
+                const date = new Date(item.date);
+                const yearMonth = date.getFullYear() + '-' + (date.getMonth() + 1).toString().padStart(2, '0');
+                if (monthlySavings[yearMonth] !== undefined) {
+                    monthlySavings[yearMonth] += item.amount;
+                }
+            });
+
+            const cumulativeSavings = [];
+            const targetPace = [];
+            let cumulativeAmount = 0;
+            for (let i = 0; i < monthlyLabels.length; i++) {
+                const yearMonth = new Date(START_DATE.getFullYear(), START_DATE.getMonth() + i).getFullYear() + '-' + (new Date(START_DATE.getFullYear(), START_DATE.getMonth() + i).getMonth() + 1).toString().padStart(2, '0');
+                cumulativeAmount += monthlySavings[yearMonth] || 0;
+                cumulativeSavings.push(cumulativeAmount);
+                targetPace.push((TARGET_AMOUNT / TARGET_MONTHS) * (i + 1));
+            }
+
+            savingsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: monthlyLabels,
+                    datasets: [{
+                        label: '実際の貯金額',
+                        data: cumulativeSavings,
+                        borderColor: '#8B5CF6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                        fill: true,
+                        tension: 0.3
+                    }, {
+                        label: '目標貯金ペース',
+                        data: targetPace,
+                        borderColor: '#9CA3AF',
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '貯金額 (円)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: '月別貯金推移と目標ペース',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // ビュー切り替えボタンのセットアップ
+        function setupViewButtons() {
+            const inputView = document.getElementById('inputView');
+            const historyView = document.getElementById('historyView');
+            const graphView = document.getElementById('graphView');
+            const viewInputButton = document.getElementById('viewInputButton');
+            const viewGraphButton = document.getElementById('viewGraphButton');
+
+            viewInputButton.addEventListener('click', () => {
+                inputView.classList.remove('hidden');
+                historyView.classList.remove('hidden');
+                graphView.classList.add('hidden');
+                viewInputButton.classList.remove('bg-gray-200', 'text-gray-700');
+                viewInputButton.classList.add('bg-purple-500', 'text-white');
+                viewGraphButton.classList.remove('bg-purple-500', 'text-white');
+                viewGraphButton.classList.add('bg-gray-200', 'text-gray-700');
+            });
+
+            viewGraphButton.addEventListener('click', () => {
+                inputView.classList.add('hidden');
+                historyView.classList.add('hidden');
+                graphView.classList.remove('hidden');
+                viewGraphButton.classList.remove('bg-gray-200', 'text-gray-700');
+                viewGraphButton.classList.add('bg-purple-500', 'text-white');
+                viewInputButton.classList.remove('bg-purple-500', 'text-white');
+                viewInputButton.classList.add('bg-gray-200', 'text-gray-700');
+                renderChart();
+            });
+        }
+
+        // `confirm()`と`prompt()`の代わりにカスタムUIを作成
+        window.confirm = (message) => {
+            return window.prompt(message, 'yes').toLowerCase() === 'yes';
+        };
+        
+        // アプリの開始
+        initializeApp();
+    </script>
+</body>
+</html>
